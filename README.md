@@ -12,13 +12,20 @@ across N processes. Uses AllReduce to quickly sum the gradients
 and distribute the total back out to every process.
 
 ```lua
-   -- Build a tree of processes
-
-   -- Compute your gradients as normal
-   local grads = computeYourGrads(...)
-   -- Sum and normalize them
-   allReduceSGD.sumAndNormalizeGradients(grads)
-
+for _ = 1,epochs do
+   for _ = 1,steps
+      -- Compute your gradients as normal
+      local grads = computeYourGrads(...)
+      -- Sum and normalize them
+      allReduceSGD.sumAndNormalizeGradients(grads)
+      -- Do your SGD as normal
+      SGD(params, grads)
+   end
+   -- Before validating we should make sure all nodes have
+   -- the exact same parameter values
+   allReduceSGD.synchronizeParameters(params)
+   -- Validate...
+end
 ```
 
 When used in combination with Dataset you can quickly parallelize

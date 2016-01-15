@@ -29,11 +29,8 @@ end
 ```
 
 When used in combination with Dataset you can quickly parallelize
-the processing of large datasets without a ton of effort.
-
-```lua
-
-```
+the processing of large datasets without a ton of effort. See the
+[MNIST example](examples/mnist.lua) for a complete working setup.
 
 License
 -------

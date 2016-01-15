@@ -20,5 +20,6 @@ build = {
    type = "builtin",
    modules = {
       ['distlearn.AllReduceSGD'] = 'lua/AllReduceSGD.lua',
+      ['distlearn.AllReduceEA'] = 'lua/AllReduceEA.lua',
    },
 }

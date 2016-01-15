@@ -1,5 +1,5 @@
 local opt = lapp [[
-Train a CNN classifier on MNIST using AllReduceSGD.
+Train a CNN classifier on MNIST using AllReduceEA.
 
    --nodeIndex         (default 1)
    --numNodes          (default 1)
@@ -14,7 +14,8 @@ local Dataset = require 'dataset.Dataset'
 
 -- Build the AllReduce tree
 local tree = require 'parallel.LocalhostTree'(opt.nodeIndex, opt.numNodes)
-local allReduceSGD = require 'distlearn.AllReduceSGD'(tree)
+-- Elastic Averaging with tau=10 and alpha=0.6
+local allReduceEA = require 'distlearn.AllReduceEA'(tree, 10, 0.2)
 
 -- Load the MNIST dataset
 local trainingDataset = Dataset('http://torch.data.s3.amazonaws.com/dataset/mnist/train.t7', {
@@ -95,15 +96,15 @@ for epoch = 1,100 do
       -- Grads:
       local grads, loss, prediction = df(params,x,y)
 
-      -- Gather the grads from all nodes
-      allReduceSGD.sumAndNormalizeGradients(grads)
-
       -- Update weights and biases
       for iparam=1,2 do
          params.conv1[iparam] = params.conv1[iparam] - grads.conv1[iparam] * 0.01
          params.conv2[iparam] = params.conv2[iparam] - grads.conv2[iparam] * 0.01
          params.linear[iparam] = params.linear[iparam] - grads.linear[iparam] * 0.01
       end
+
+      -- Average the parameters
+      allReduceEA.averageParameters(params)
 
       -- Log performance:
       confusionMatrix:add(prediction[1], y[1])
@@ -114,5 +115,5 @@ for epoch = 1,100 do
    end
 
    -- Make sure all nodes are in sync at the end of an epoch
-   allReduceSGD.synchronizeParameters(params)
+   allReduceEA.synchronizeCenter(params)
 end

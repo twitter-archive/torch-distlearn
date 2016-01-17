@@ -6,6 +6,14 @@ local function AllReduceSGD(tree)
    -- Keep track of how many steps each node does per epoch
    local stepsPerNode = torch.LongTensor(tree.numNodes):fill(0)
 
+   -- Sum the gradients of all nodes
+   local function sumGradients(grads)
+      -- All reduce and sum the gradients
+      local _,n = tree.allReduce(grads, function(a, b) return a:add(b) end)
+      -- This node contributed to this step
+      stepsPerNode[tree.nodeIndex] = stepsPerNode[tree.nodeIndex] + 1
+   end
+
    -- Sum and normalize the gradients of all nodes
    local function sumAndNormalizeGradients(grads)
       -- All reduce and sum the gradients
@@ -38,6 +46,7 @@ local function AllReduceSGD(tree)
    end
 
    return {
+      sumGradients = sumGradients,
       sumAndNormalizeGradients = sumAndNormalizeGradients,
       synchronizeParameters = synchronizeParameters,
    }

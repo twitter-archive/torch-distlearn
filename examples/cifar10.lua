@@ -1,9 +1,10 @@
 local opt = lapp [[
 Train a CNN classifier on CIFAR-10 using AllReduceSGD.
 
-   --nodeIndex         (default 1)
-   --numNodes          (default 1)
-   --batchSize         (default 10)        batch size, per node
+   --nodeIndex         (default 1)         node index
+   --numNodes          (default 1)         num nodes spawned in parallel
+   --batchSize         (default 32)        batch size, per node
+   --learningRate      (default .1)        learning rate
 ]]
 
 -- Requires
@@ -17,14 +18,25 @@ local Dataset = require 'dataset.Dataset'
 local tree = require 'parallel.LocalhostTree'(opt.nodeIndex, opt.numNodes)
 local allReduceSGD = require 'distlearn.AllReduceSGD'(tree)
 
--- Load the MNIST dataset
+-- Print only in instance 1!
+if opt.nodeIndex > 1 then
+   xlua.progress = function() end
+   print = function() end
+end
+
+-- Adapt batch size, per node:
+opt.batchSize = math.ceil(opt.batchSize / opt.numNodes)
+print('Batch size: per node = ' .. opt.batchSize .. ', total = ' .. (opt.batchSize*opt.numNodes))
+
+-- Load the CIFAR-10 dataset
 local trainingDataset = Dataset('http://torch.data.s3.amazonaws.com/dataset/cifar10/training.csv', {
+   -- Partition dataset so each node sees a subset:
    partition = opt.nodeIndex,
    partitions = opt.numNodes,
 })
 
 local getTrainingBatch, numTrainingBatches = trainingDataset.sampledBatcher({
-   samplerKind = 'label-uniform',
+   samplerKind = 'label-permutation',
    batchSize = opt.batchSize,
    inputDims = { 3, 32, 32 },
    verbose = true,
@@ -49,46 +61,67 @@ local classes = {
 }
 local confusionMatrix = optim.ConfusionMatrix(classes)
 
--- What model to train:
-local predict,f,params
-
 -- for CNNs, we rely on efficient nn-provided primitives:
-local reshape = grad.nn.Reshape(3,32,32)
+local conv,params,bn,acts,pool = {},{},{},{},{}
+local flatten,linear
 
-local conv1, acts1, pool1, conv2, acts2, pool2, flatten, linear
-local params = {}
-conv1, params.conv1 = grad.nn.SpatialConvolutionMM(3, 32, 5, 5)
-acts1 = grad.nn.Tanh()
-pool1 = grad.nn.SpatialMaxPooling(2, 2, 2, 2)
+-- Ensure same init on all nodes:
+torch.manualSeed(0)
 
-conv2, params.conv2 = grad.nn.SpatialConvolutionMM(32, 64, 5, 5)
-acts2 = grad.nn.Tanh()
-pool2, params.pool2 = grad.nn.SpatialMaxPooling(2, 2, 2, 2)
+-- layer 1:
+conv[1], params[1] = grad.nn.SpatialConvolutionMM(3, 64, 5,5, 1,1, 2,2)
+bn[1], params[2] = grad.nn.SpatialBatchNormalization(64, 1e-3)
+acts[1] = grad.nn.ReLU()
+pool[1] = grad.nn.SpatialMaxPooling(2,2, 2,2)
 
-flatten = grad.nn.Reshape(64*5*5)
-linear,params.linear = grad.nn.Linear(64*5*5, 10)
+-- layer 2:
+conv[2], params[3] = grad.nn.SpatialConvolutionMM(64, 128, 5,5, 1,1, 2,2)
+bn[2], params[4] = grad.nn.SpatialBatchNormalization(128, 1e-3)
+acts[2] = grad.nn.ReLU()
+pool[2] = grad.nn.SpatialMaxPooling(2,2, 2,2)
+
+-- layer 3:
+conv[3], params[5] = grad.nn.SpatialConvolutionMM(128, 256, 5,5, 1,1, 2,2)
+bn[3], params[6] = grad.nn.SpatialBatchNormalization(256, 1e-3)
+acts[3] = grad.nn.ReLU()
+pool[3] = grad.nn.SpatialMaxPooling(2,2, 2,2)
+
+-- layer 4:
+conv[4], params[7] = grad.nn.SpatialConvolutionMM(256, 512, 5,5, 1,1, 2,2)
+bn[4], params[8] = grad.nn.SpatialBatchNormalization(512, 1e-3)
+acts[4] = grad.nn.ReLU()
+pool[4] = grad.nn.SpatialMaxPooling(2,2, 2,2)
+
+-- layer 5:
+flatten = grad.nn.Reshape(512*2*2)
+linear,params[9] = grad.nn.Linear(512*2*2, 10)
 
 -- Cast the parameters
 params = grad.util.cast(params, 'float')
 
+-- Loss:
+local logSoftMax = grad.nn.LogSoftMax()
+local crossEntropy = grad.nn.ClassNLLCriterion()
+
 -- Define our network
-function predict(params, input, target)
-   local h1 = pool1(acts1(conv1(params.conv1, reshape(input))))
-   local h2 = pool2(acts2(conv2(params.conv2, h1)))
-   local h3 = linear(params.linear, flatten(h2))
-   local out = util.logSoftMax(h3)
+local function predict(params, input, target)
+   local h = input
+   local np = 1
+   for i in ipairs(conv) do
+      h = pool[i](acts[i](bn[i](params[np+1], conv[i](params[np], h))))
+      np = np + 2
+   end
+   local hl = linear(params[np], flatten(h), 0.5)
+   local out = logSoftMax(hl)
    return out
 end
 
 -- Define our loss function
-function f(params, input, target)
+local function f(params, input, target)
    local prediction = predict(params, input, target)
-   local loss = lossFuns.logMultinomialLoss(prediction, target)
+   local loss = crossEntropy(prediction, target)
    return loss, prediction
 end
-
--- Define our parameters
-torch.manualSeed(0)
 
 -- Get the gradients closure magically:
 local df = grad(f, {
@@ -103,7 +136,7 @@ for epoch = 1,100 do
       -- Next sample:
       local batch = getTrainingBatch()
       local x = batch.input
-      local y = util.oneHot(batch.target, 10)
+      local y = batch.target
 
       -- Grads:
       local grads, loss, prediction = df(params,x,y)
@@ -112,15 +145,22 @@ for epoch = 1,100 do
       allReduceSGD.sumAndNormalizeGradients(grads)
 
       -- Update weights and biases
-      for iparam=1,2 do
-         params.conv1[iparam] = params.conv1[iparam] - grads.conv1[iparam] * 0.01
-         params.conv2[iparam] = params.conv2[iparam] - grads.conv2[iparam] * 0.01
-         params.linear[iparam] = params.linear[iparam] - grads.linear[iparam] * 0.01
+      for layer in pairs(params) do
+         for i in pairs(params[layer]) do
+            params[layer][i]:add(-opt.learningRate, grads[layer][i])
+         end
       end
 
       -- Log performance:
-      confusionMatrix:add(prediction[1], y[1])
-      if i % 1000 == 0 then
+      for b = 1,opt.batchSize do
+         confusionMatrix:add(prediction[b], y[b])
+      end
+
+      -- Display progress:
+      xlua.progress(i, numTrainingBatches())
+      if i % 100 == 0 then
+         -- Reduce confusion matrix so all instances share the same:
+         tree.allReduce(confusionMatrix.mat, function(a,b) return a:add(b) end)
          print(confusionMatrix)
          confusionMatrix:zero()
       end
@@ -128,4 +168,6 @@ for epoch = 1,100 do
 
    -- Make sure all nodes are in sync at the end of an epoch
    allReduceSGD.synchronizeParameters(params)
+
+   -- TODO: run validation here (can be distributed too)
 end

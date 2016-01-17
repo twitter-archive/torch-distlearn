@@ -37,8 +37,12 @@ local getTrainingBatch, numTrainingBatches = trainingDataset.sampledBatcher({
 local classes = {'0','1','2','3','4','5','6','7','8','9'}
 local confusionMatrix = optim.ConfusionMatrix(classes)
 
+-- Ensure params are equal on all nodes
+torch.manualSeed(0)
+
 -- What model to train:
 local predict,f,params
+
 -- for CNNs, we rely on efficient nn-provided primitives:
 local reshape = grad.nn.Reshape(1,32,32)
 
@@ -73,9 +77,6 @@ function f(params, input, target)
    local loss = lossFuns.logMultinomialLoss(prediction, target)
    return loss, prediction
 end
-
--- Define our parameters
-torch.manualSeed(0)
 
 -- Get the gradients closure magically:
 local df = grad(f, {

@@ -3,6 +3,7 @@ Train a CNN classifier on CIFAR-10 using AllReduceSGD.
 
    --nodeIndex         (default 1)
    --numNodes          (default 1)
+   --batchSize         (default 10)        batch size, per node
 ]]
 
 -- Requires
@@ -24,7 +25,7 @@ local trainingDataset = Dataset('http://torch.data.s3.amazonaws.com/dataset/cifa
 
 local getTrainingBatch, numTrainingBatches = trainingDataset.sampledBatcher({
    samplerKind = 'label-uniform',
-   batchSize = 1,
+   batchSize = opt.batchSize,
    inputDims = { 3, 32, 32 },
    verbose = true,
    processor = function(res, processorOpt, input)

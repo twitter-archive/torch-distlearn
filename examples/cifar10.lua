@@ -29,7 +29,7 @@ opt.batchSize = math.ceil(opt.batchSize / opt.numNodes)
 print('Batch size: per node = ' .. opt.batchSize .. ', total = ' .. (opt.batchSize*opt.numNodes))
 
 -- Load the CIFAR-10 dataset
-local trainingDataset = Dataset('http://torch.data.s3.amazonaws.com/dataset/cifar10/training.csv', {
+local trainingDataset = Dataset('http://d3jod65ytittfm.cloudfront.net/dataset/cifar10/training.csv', {
    -- Partition dataset so each node sees a subset:
    partition = opt.nodeIndex,
    partitions = opt.numNodes,

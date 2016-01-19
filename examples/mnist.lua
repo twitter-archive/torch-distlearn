@@ -17,7 +17,7 @@ local tree = require 'parallel.LocalhostTree'(opt.nodeIndex, opt.numNodes)
 local allReduceSGD = require 'distlearn.AllReduceSGD'(tree)
 
 -- Load the MNIST dataset
-local trainingDataset = Dataset('http://torch.data.s3.amazonaws.com/dataset/mnist/train.t7', {
+local trainingDataset = Dataset('http://d3jod65ytittfm.cloudfront.net/dataset/mnist/train.t7', {
    partition = opt.nodeIndex,
    partitions = opt.numNodes,
 })

@@ -152,7 +152,7 @@ for epoch = 1,100 do
       end
 
       -- Log performance:
-      for b = 1,opt.batchSize do
+      for b = 1,batch.batchSize do
          confusionMatrix:add(prediction[b], y[b])
       end
 

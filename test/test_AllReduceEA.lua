@@ -6,7 +6,8 @@ test {
       local function theTest(numEpochs, nodeIndex, numNodes, server, client, port)
          local tree = require 'ipc.Tree'(nodeIndex, numNodes, 2, server, client, '127.0.0.1', port)
          local allReduceEA = require 'distlearn.AllReduceEA'(tree, 3, 0.4)
-         local params = { torch.Tensor(7):fill(0) }
+         local params = { torch.randn(7) }
+         allReduceEA.synchronizeParameters(params)
          local slowit = 1
          for epoch = 1,5 do
             local steps = math.random(45, 53)

@@ -20,29 +20,37 @@ local function AllReduceSGD(tree)
       local _,n = tree.allReduce(grads, function(a, b) return a:add(b) end)
       -- Normalize them by the # of nodes that contributed
       -- Not all nodes contribute to every step due to uneven partitioning of data
-      tree.walkTable(grads, function(grad)
-         grad:div(n)
-      end)
+      if n > 1 then
+         tree.walkTable(grads, function(grad)
+            grad:mul(1/n)
+         end)
+      end
       -- This node contributed to this step
       stepsPerNode[tree.nodeIndex] = stepsPerNode[tree.nodeIndex] + 1
    end
 
    -- Get the same parameters on all nodes after a training epoch
    local function synchronizeParameters(params)
-      -- Do one final all reduce to get all the nodes in sync
-      tree.allReduce(nil, function(a, b) return a:add(b) end, function(a) return a:fill(0) end)
-      -- All reduce the # of steps per node
-      tree.allReduce(stepsPerNode, function(a, b) return a:add(b) end)
-      -- Which node had the greatest # of steps?
-      local _,indicies = stepsPerNode:sort()
-      -- Zero out our parameters if we aren't the longest
-      if tree.nodeIndex ~= indicies[tree.numNodes] then
-         tree.walkTable(params, function(param) return param:fill(0) end)
+      -- If we aren't in the middle of a series of steps then we dont need to get in sync
+      if stepsPerNode[tree.nodeIndex] > 0 then
+         -- Do one final all reduce to get all the nodes in sync
+         tree.allReduce(nil, function(a, b) return a:add(b) end, function(a) return a:fill(0) end)
+         -- All reduce the # of steps per node
+         tree.allReduce(stepsPerNode, function(a, b) return a:add(b) end)
+         -- Which node had the greatest # of steps?
+         local _,indicies = stepsPerNode:sort()
+         -- Zero out our parameters if we aren't the longest
+         if tree.nodeIndex ~= indicies[tree.numNodes] then
+            tree.walkTable(params, function(param) return param:fill(0) end)
+         end
+         -- All reduce the params, this puts the winning node's params on all nodes
+         tree.allReduce(params, function(a, b) return a:add(b) end)
+         -- Reset the steps counter for the next loop of training
+         stepsPerNode:fill(0)
+      else
+         -- Just a simple scatter from the root is sufficient
+         tree.scatter(params)
       end
-      -- All reduce the params, this puts the winning node's params on all nodes
-      tree.allReduce(params, function(a, b) return a:add(b) end)
-      -- Reset the steps counter for the next loop of training
-      stepsPerNode:fill(0)
    end
 
    return {

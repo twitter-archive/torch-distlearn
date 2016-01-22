@@ -108,6 +108,9 @@ linear,params[9] = grad.nn.Linear(512*2*2, 10)
 -- Cast the parameters
 params = grad.util.cast(params, opt.cuda and 'cuda' or 'float')
 
+-- Make sure all the nodes have the same parameter values
+allReduceSGD.synchronizeParameters(params)
+
 -- Loss:
 local logSoftMax = grad.nn.LogSoftMax()
 local crossEntropy = grad.nn.ClassNLLCriterion()

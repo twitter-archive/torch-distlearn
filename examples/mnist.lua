@@ -62,6 +62,9 @@ linear,params.linear = grad.nn.Linear(16*5*5, 10)
 -- Cast the parameters
 params = grad.util.cast(params, 'float')
 
+-- Make sure all the nodes have the same parameter values
+allReduceSGD.synchronizeParameters(params)
+
 -- Define our network
 function predict(params, input, target)
    local h1 = pool1(acts1(conv1(params.conv1, reshape(input))))

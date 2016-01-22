@@ -16,6 +16,12 @@ local Dataset = require 'dataset.Dataset'
 local tree = require 'ipc.LocalhostTree'(opt.nodeIndex, opt.numNodes)
 local allReduceSGD = require 'distlearn.AllReduceSGD'(tree)
 
+-- Print only in instance 1!
+if opt.nodeIndex > 1 then
+   xlua.progress = function() end
+   print = function() end
+end
+
 -- Load the MNIST dataset
 local trainingDataset = Dataset('http://d3jod65ytittfm.cloudfront.net/dataset/mnist/train.t7', {
    partition = opt.nodeIndex,
@@ -112,6 +118,8 @@ for epoch = 1,100 do
       -- Log performance:
       confusionMatrix:add(prediction[1], y[1])
       if i % 1000 == 0 then
+         -- Reduce confusion matrix so all instances share the same:
+         tree.allReduce(confusionMatrix.mat, function(a,b) return a:add(b) end)
          print(confusionMatrix)
          confusionMatrix:zero()
       end

@@ -5,9 +5,17 @@ Train a CNN classifier on CIFAR-10 using AllReduceSGD.
    --numNodes          (default 1)         num nodes spawned in parallel
    --batchSize         (default 32)        batch size, per node
    --learningRate      (default .1)        learning rate
+   --cuda                                  use cuda
+   --gpu               (default 1)         which gpu to use (only when using cuda)
 ]]
 
 -- Requires
+if opt.cuda then
+   require 'cutorch'
+   require 'cunn'
+   cutorch.setDevice(opt.gpu)
+end
+-- luarocks install autograd
 local grad = require 'autograd'
 local util = require 'autograd.util'
 local lossFuns = require 'autograd.loss'
@@ -36,10 +44,11 @@ local trainingDataset = Dataset('http://d3jod65ytittfm.cloudfront.net/dataset/ci
 })
 
 local getTrainingBatch, numTrainingBatches = trainingDataset.sampledBatcher({
-   samplerKind = 'label-permutation',
+   samplerKind = 'label-uniform',
    batchSize = opt.batchSize,
    inputDims = { 3, 32, 32 },
    verbose = true,
+   cuda = opt.cuda,
    processor = function(res, processorOpt, input)
       -- This function is not a closure, it is run in a clean Lua environment
       local image = require 'image'
@@ -97,7 +106,7 @@ flatten = grad.nn.Reshape(512*2*2)
 linear,params[9] = grad.nn.Linear(512*2*2, 10)
 
 -- Cast the parameters
-params = grad.util.cast(params, 'float')
+params = grad.util.cast(params, opt.cuda and 'cuda' or 'float')
 
 -- Loss:
 local logSoftMax = grad.nn.LogSoftMax()

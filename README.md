@@ -13,6 +13,8 @@ and distribute the total back out to every process.
 
 ```lua
 local allReduceSGD = require 'distlearn.AllReduceSGD'(tree)
+-- Make sure all the nodes start with the same parameter values
+allReduceSGD.synchronizeParameters(params)
 for _ = 1,epochs do
    for _ = 1,steps
       -- Compute your gradients as normal
@@ -46,6 +48,8 @@ the weight used during the averaging step.
 ```lua
 -- Use a tau of 10 and an alpha of 0.2
 local allReduceEA = require 'distlearn.AllReduceEA'(tree, 10, 0.2)
+-- Make sure all the nodes start with the same parameter values
+allReduceEA.synchronizeParameters(params)
 for _ = 1,epochs do
    for _ = 1,steps
       -- Compute your gradients as normal

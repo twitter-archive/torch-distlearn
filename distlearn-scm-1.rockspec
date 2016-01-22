@@ -14,7 +14,7 @@ description = {
 dependencies = {
    "torch >= 7.0",
    "regress",
-   "parallel",
+   "ipc",
 }
 
 build = {

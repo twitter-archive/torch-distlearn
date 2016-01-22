@@ -2,7 +2,7 @@ DistLearn
 =========
 
 Some common distributed learning algorithms built in Torch
-with the help of the the parallel library.
+with the help of the the ipc library.
 
 AllReduceSGD
 ------------

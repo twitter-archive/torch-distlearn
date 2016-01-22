@@ -13,7 +13,7 @@ local optim = require 'optim'
 local Dataset = require 'dataset.Dataset'
 
 -- Build the AllReduce tree
-local tree = require 'parallel.LocalhostTree'(opt.nodeIndex, opt.numNodes)
+local tree = require 'ipc.LocalhostTree'(opt.nodeIndex, opt.numNodes)
 local allReduceSGD = require 'distlearn.AllReduceSGD'(tree)
 
 -- Load the MNIST dataset

@@ -1,10 +1,10 @@
 local test = require 'regress'
-local parallel = require 'libparallel'
+local ipc = require 'libipc'
 
 test {
    testAllReduceSGD = function()
       local function theTest(numEpochs, nodeIndex, numNodes, server, client, port)
-         local tree = require 'parallel.Tree'(nodeIndex, numNodes, 2, server, client, '127.0.0.1', port)
+         local tree = require 'ipc.Tree'(nodeIndex, numNodes, 2, server, client, '127.0.0.1', port)
          local allReduceSGD = require 'distlearn.AllReduceSGD'(tree)
          local grads = { torch.Tensor(7):fill(0) }
          local params = { torch.Tensor(7):fill(0) }
@@ -22,10 +22,10 @@ test {
       for _ = 1,10 do
          local numNodes = math.pow(2, math.random(1, 3))
          local numEpochs = math.random(1, 27)
-         local server, port = parallel.server('127.0.0.1')
-         local workers = parallel.map(numNodes - 1, function(numEpochs, numNodes, port, theTest, mapid)
-            local parallel = require 'libparallel'
-            local client = parallel.client('127.0.0.1', port)
+         local server, port = ipc.server('127.0.0.1')
+         local workers = ipc.map(numNodes - 1, function(numEpochs, numNodes, port, theTest, mapid)
+            local ipc = require 'libipc'
+            local client = ipc.client('127.0.0.1', port)
             local ret = theTest(numEpochs, mapid + 1, numNodes, nil, client)
             client:close()
             return ret

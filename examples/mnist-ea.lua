@@ -13,7 +13,7 @@ local optim = require 'optim'
 local Dataset = require 'dataset.Dataset'
 
 -- Build the AllReduce tree
-local tree = require 'parallel.LocalhostTree'(opt.nodeIndex, opt.numNodes)
+local tree = require 'ipc.LocalhostTree'(opt.nodeIndex, opt.numNodes)
 -- Elastic Averaging with tau=10 and alpha=0.6
 local allReduceEA = require 'distlearn.AllReduceEA'(tree, 10, 0.2)
 

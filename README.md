@@ -43,7 +43,8 @@ Averaging algorithm as described in [Deep learning with Elastic Averaging SGD](h
 Its just as easy to add this to your training script, there
 are only two parameters required tau and alpha. Tau is how
 many steps to run before averaging the nodes and alpha is
-the weight used during the averaging step.
+the weight used during the averaging step. You can read
+more about [our implementation of AllReduceEA](lua/AllReduceEA.md).
 
 ```lua
 -- Use a tau of 10 and an alpha of 0.2

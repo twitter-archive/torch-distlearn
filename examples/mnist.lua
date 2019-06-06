@@ -23,7 +23,7 @@ if opt.nodeIndex > 1 then
 end
 
 -- Load the MNIST dataset
-local trainingDataset = Dataset('http://d3jod65ytittfm.cloudfront.net/dataset/mnist/train.t7', {
+local trainingDataset = Dataset('https://d3jod65ytittfm.cloudfront.net/dataset/mnist/train.t7', {
    partition = opt.nodeIndex,
    partitions = opt.numNodes,
 })

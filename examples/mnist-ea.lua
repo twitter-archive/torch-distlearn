@@ -18,7 +18,7 @@ local tree = require 'ipc.LocalhostTree'(opt.nodeIndex, opt.numNodes)
 local allReduceEA = require 'distlearn.AllReduceEA'(tree, 10, 0.2)
 
 -- Load the MNIST dataset
-local trainingDataset = Dataset('http://d3jod65ytittfm.cloudfront.net/dataset/mnist/train.t7', {
+local trainingDataset = Dataset('https://d3jod65ytittfm.cloudfront.net/dataset/mnist/train.t7', {
    partition = opt.nodeIndex,
    partitions = opt.numNodes,
 })
